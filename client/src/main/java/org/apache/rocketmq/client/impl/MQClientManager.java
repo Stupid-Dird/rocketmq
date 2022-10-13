@@ -25,11 +25,18 @@ import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.remoting.RPCHook;
 
+/**
+ * MQClient管理者，积极的单例模式
+ * 通过factoryTable存储本地的MQClient实例
+ */
 public class MQClientManager {
     private final static InternalLogger log = ClientLogger.getLog();
     private static MQClientManager instance = new MQClientManager();
     private AtomicInteger factoryIndexGenerator = new AtomicInteger();
-    private ConcurrentMap<String/* clientId */, MQClientInstance> factoryTable =
+    /**
+     *  key是 clientId
+     */
+    private ConcurrentMap<String, MQClientInstance> factoryTable =
         new ConcurrentHashMap<String, MQClientInstance>();
 
     private MQClientManager() {
@@ -40,6 +47,9 @@ public class MQClientManager {
         return instance;
     }
 
+    /**
+     * 根据clientId是否存在对应的client实例来判断是否要创建新的client实例
+     */
     public MQClientInstance getOrCreateMQClientInstance(final ClientConfig clientConfig) {
         return getOrCreateMQClientInstance(clientConfig, null);
     }

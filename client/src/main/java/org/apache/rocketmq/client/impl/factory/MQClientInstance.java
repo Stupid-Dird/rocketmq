@@ -279,6 +279,14 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 开启多个周期性任务
+     * 1.10秒后执行更新ns服务列表地址，每个2分钟重新获取ns服务列表，如果有更新会打印日志
+     * 2.10毫秒后执行更新TopicRouteInfo，每隔clientConfig.pollNameServerInterval(30*1000)毫秒更新TopicRouteInfo
+     * 3.1000毫秒后执行心跳检测和发送心跳，每隔clientConfig.heartbeatBrokerInterval(1000 * 30)毫秒重新执行
+     * 4.1000 * 10毫秒后执行消费进度的offset，每隔clientConfig.persistConsumerOffsetInterval(1000*5)毫秒重新执行
+     * 5.1分钟后执行adjustThreadPool(),每隔1分钟再次执行，作用暂不明确
+     */
     private void startScheduledTask() {
         if (null == this.clientConfig.getNamesrvAddr()) {
             this.scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -300,7 +308,9 @@ public class MQClientInstance {
 
         this.scheduledExecutorService.scheduleAtFixedRate(() -> {
             try {
+                //移除下线的broker
                 MQClientInstance.this.cleanOfflineBroker();
+                //发送心跳，并且将MessageSelector实现类更新到FilterServer
                 MQClientInstance.this.sendHeartbeatToAllBrokerWithLock();
             } catch (Exception e) {
                 log.error("ScheduledTask sendHeartbeatToAllBroker exception", e);
@@ -328,6 +338,9 @@ public class MQClientInstance {
         return clientId;
     }
 
+    /**
+     * 更新TopicRouteData，并且调用consumerTable和producerTable的接口更新TopicRoute
+     */
     public void updateTopicRouteInfoFromNameServer() {
         Set<String> topicList = new HashSet<>();
 
@@ -378,6 +391,8 @@ public class MQClientInstance {
     }
 
     /**
+     * 从brokerAddrTable移除下线的broker
+     * 判断一个broker是否下线就看topicRouteTable是否存在对应的TopicRouteData
      * Remove offline broker
      */
     private void cleanOfflineBroker() {
@@ -460,6 +475,10 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 1.发送心跳，并维护每个broker的对应版本
+     * 2.上传MessageSelector实现类到过滤服务器
+     */
     public void sendHeartbeatToAllBrokerWithLock() {
         if (this.lockHeartbeat.tryLock()) {
             try {
@@ -475,6 +494,9 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 获取每个消费组的MQConsumerInner实现，调用persistConsumerOffset持久化消息进度
+     */
     private void persistAllConsumerOffset() {
         for (Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
             MQConsumerInner impl = entry.getValue();
@@ -517,6 +539,9 @@ public class MQClientInstance {
         return false;
     }
 
+    /**
+     *
+     */
     private void sendHeartbeatToAllBroker() {
         final HeartbeatData heartbeatData = this.prepareHeartbeatData();
         final boolean producerEmpty = heartbeatData.getProducerDataSet().isEmpty();
@@ -568,6 +593,9 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 上传MessageSelector的实现类到过滤服务器
+     */
     private void uploadFilterClassSource() {
         for (Entry<String, MQConsumerInner> next : this.consumerTable.entrySet()) {
             MQConsumerInner consumer = next.getValue();
