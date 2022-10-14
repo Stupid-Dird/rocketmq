@@ -540,7 +540,7 @@ public class MQClientInstance {
     }
 
     /**
-     *
+     * 向所有broker发送心跳并更新broker对应的版本号
      */
     private void sendHeartbeatToAllBroker() {
         final HeartbeatData heartbeatData = this.prepareHeartbeatData();
